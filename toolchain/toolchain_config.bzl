@@ -12,11 +12,22 @@
 # other languages or figure out how to select toolchains for custom CPU types,
 # OSes, etc., the BUILD file is much more interesting.
 
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "artifact_name_pattern",
     "tool_path",
+    "feature",
+    "flag_group",
+    "flag_set",
 )
+
+all_link_actions = [
+    ACTION_NAMES.cpp_link_executable,
+    ACTION_NAMES.cpp_link_dynamic_library,
+    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+]
 
 def _impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name)
@@ -27,6 +38,41 @@ def _impl(ctx):
 
     # MINGW Compiler Version (e.g: "10.3.0")
     GCC_VERSION = ctx.var.get("GCC_VERSION")
+
+    dbg_feature = feature(
+        name = "dbg",
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                flag_groups = [flag_group(flags = ["-g", "-Og"])],
+            ),
+        ],
+    )
+
+    opt_feature = feature(
+        name = "opt",
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                flag_groups = [flag_group(flags = [
+                    "-g0",
+                    "-O3",
+                    "-DNDEBUG",
+                    "-ffunction-sections",
+                    "-fdata-sections",
+                ])],
+            ),
+            flag_set(
+                actions = all_link_actions,
+                flag_groups = [flag_group(flags = ["-Wl,--gc-sections"])],
+            ),
+        ],
+    )
+
+    features = [
+        dbg_feature,
+        opt_feature,
+    ]
 
     return [
         cc_common.create_cc_toolchain_config_info(
@@ -81,13 +127,14 @@ def _impl(ctx):
                 MINGW_PATH + "/lib/gcc/x86_64-w64-mingw32/" + GCC_VERSION + "/install-tools/include",
                 MINGW_PATH + "/x86_64-w64-mingw32/include",
             ],
+            features = features,
             artifact_name_patterns = [
                 artifact_name_pattern(
                     category_name = "executable",
                     prefix = "",
                     extension = ".exe",
                 ),
-		artifact_name_pattern(
+            artifact_name_pattern(
                     category_name = "dynamic_library",
                     prefix = "lib",
                     extension = ".dll",

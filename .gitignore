@@ -1,0 +1,3 @@
+# ignoring all bazel symlinks
+/bazel-*
+/*.lock

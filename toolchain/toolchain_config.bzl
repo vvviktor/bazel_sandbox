@@ -134,7 +134,7 @@ def _impl(ctx):
                     prefix = "",
                     extension = ".exe",
                 ),
-            artifact_name_pattern(
+                artifact_name_pattern(
                     category_name = "dynamic_library",
                     prefix = "lib",
                     extension = ".dll",
